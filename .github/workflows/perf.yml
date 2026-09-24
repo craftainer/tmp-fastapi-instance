@@ -1,0 +1,73 @@
+# Load test: builds the runner stage from the root compose.yml and runs
+# tests/perf/locustfile.py against it, failing the job on any request error or
+# an NFR-0024 p95 latency breach. Not triggered per-push/PR like checks.yml/
+# smoke.yml -- see docs/adrs/0010-locust-for-load-testing.md for why.
+name: Perf
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Weekly, off-peak -- see docs/adrs/0010-locust-for-load-testing.md.
+    - cron: "17 3 * * 1"
+
+permissions:
+  contents: read
+
+jobs:
+  perf:
+    # renovate: datasource=github-runners depName=ubuntu
+    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-24.04' }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7.0.1
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v10.1.0
+        with:
+          enable-cache: true
+
+      # Unique per run so concurrent runs never collide on
+      # container/volume/network names -- same reasoning as checks.yml/smoke.yml.
+      - name: Set compose project name
+        run: echo "COMPOSE_PROJECT_NAME=perf-${{ github.run_id }}-${{ github.run_attempt }}" >> "$GITHUB_ENV"
+
+      - name: Build and start stack
+        run: docker compose -f compose.yml up -d --build --wait --wait-timeout 300
+
+      # locustfile.py logs in with a real password grant against Keycloak's
+      # token endpoint, from this runner host rather than from inside the
+      # compose network -- it needs the same "keycloak" DNS name and trusted
+      # cert the api container already has (see compose.yml's keycloak
+      # ports: comment for why 127.0.0.1 + this exact hostname).
+      - name: Point this runner at the stack's Keycloak
+        run: |
+          echo "127.0.0.1 keycloak" | sudo tee -a /etc/hosts
+          docker compose -f compose.yml -p "$COMPOSE_PROJECT_NAME" cp smoke-tls-cert:/tls/keycloak.crt keycloak.crt
+
+      - name: Run Locust load test
+        env:
+          OIDC_TOKEN_URL: "https://keycloak:8443/realms/template-fastapi/protocol/openid-connect/token"
+          SSL_CERT_FILE: ${{ github.workspace }}/keycloak.crt
+        run: |
+          mkdir -p tests/perf/.results
+          uv run locust -f tests/perf/locustfile.py --headless \
+            --host http://localhost:8000 \
+            --users 20 --spawn-rate 5 --run-time 2m \
+            --csv tests/perf/.results/run --html tests/perf/.results/run.html \
+            --exit-code-on-error 1
+
+      - name: Dump logs on failure
+        if: failure()
+        run: docker compose -f compose.yml logs
+
+      - name: Upload Locust report
+        if: always()
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: locust-report
+          path: tests/perf/.results/
+          if-no-files-found: ignore
+
+      - name: Tear down stack
+        if: always()
+        run: docker compose -f compose.yml -p "$COMPOSE_PROJECT_NAME" down --volumes --remove-orphans

@@ -50,8 +50,9 @@ Practices below are distilled from Anthropic's own Claude Code guidance
 
 - **Explore, then plan, then implement.** For anything touching more
   than one file, or where the approach isn't obvious, read the
-  relevant code and this file's directory-level `README.md`s (see
-  "Before writing anything" above) and write a plan before editing.
+  relevant code and the `README.md`s on the path to each file you'll
+  touch (see "Before writing anything" above) and write a plan before
+  editing.
   Skip planning for a change you could describe as a one-sentence diff.
   When asked to produce a plan, write it to `docs/plans/` per
   [`docs/plans/README.md`](docs/plans/README.md) rather than only
@@ -63,14 +64,15 @@ Practices below are distilled from Anthropic's own Claude Code guidance
   user's use (a one-line summary plus a short bullet list of the most
   important changes) — don't create the commit yourself unless asked.
 - **Verify before calling it done.** A change isn't finished until
-  something has produced a pass/fail signal against it — `ruff`,
-  `mypy --strict`, `pytest`, or (for e2e work) the Playwright suite —
-  and you've shown the actual output, not just asserted success.
-  "Looks done" is not a verification step.
+  something has produced a pass/fail signal against it — `prek run
+  --all-files --hook-stage manual`, or whatever lint/type-check/test/e2e
+  commands the instance layers on top — and you've shown the actual
+  output, not just asserted success. "Looks done" is not a verification
+  step.
 - **Address root causes.** Fix the underlying issue a failing check
-  reports, not the check itself — don't silence a `ruff`/`mypy` error
-  with a broad `# noqa`/`# type: ignore` just to make output green; see
-  `docs/TEMPLATE.md`'s "Checks" section for the narrow, justified
+  reports, not the check itself — don't silence a linter/type-checker
+  finding with a broad suppression comment just to make output green;
+  see `docs/TEMPLATE.md`'s "Checks" section for the narrow, justified
   exception.
 - **Scope investigations.** When exploring the codebase to answer a
   question, read only what's needed to answer it, and prefer a
@@ -109,8 +111,9 @@ Practices below are distilled from Anthropic's own Claude Code guidance
   available, rather than reasoning through it unstructured.
 
 `.claude/hooks/self-check.sh` automates the fast tier of this (see
-`.claude/README.md`) but doesn't replace running `mypy`/`pytest`/the
-Playwright suite yourself before considering a change finished.
+`.claude/README.md`) but doesn't replace running the instance's own
+slower checks (type checker, test suite, e2e suite, ...) yourself before
+considering a change finished.
 
 ## Token efficiency
 
@@ -126,6 +129,6 @@ Playwright suite yourself before considering a change finished.
 ## Compact instructions
 
 When compacting, preserve which files have been edited and their
-current state, the most recent `ruff`/`mypy`/`pytest`/Playwright output
-verbatim (pass or fail, with any error text), and unresolved plan/TODO
-items. Summarize away exploratory reads that didn't lead to a change.
+current state, the most recent check-suite output verbatim (pass or
+fail, with any error text), and unresolved plan/TODO items. Summarize
+away exploratory reads that didn't lead to a change.

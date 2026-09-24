@@ -20,4 +20,4 @@ documented in `src/app/README.md`'s "Layering" section.
 ## Verification
 
 CI-gated via import-linter (or equivalent) as part of
-`prek run --all-files --hook-stage manual`.
+`uv run prek run --all-files --hook-stage manual`.

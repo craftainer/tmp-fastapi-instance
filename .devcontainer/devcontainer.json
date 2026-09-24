@@ -1,10 +1,9 @@
 {
   "name": "template-fastapi",
   "dockerComposeFile": [
-    "compose.yml",
-    "compose.instance.yml"
+    "compose.yml"
   ],
-  "service": "myapp",
+  "service": "api",
   "workspaceFolder": "/workspace",
   "shutdownAction": "stopCompose",
   "features": {
@@ -16,7 +15,7 @@
   "forwardPorts": [8000, 5678, "keycloak:8080"],
   "portsAttributes": {
     "8000": {
-      "label": "FastAPI (myapp)",
+      "label": "FastAPI (api)",
       "onAutoForward": "openPreview"
     },
     "5678": {
@@ -35,7 +34,7 @@
   "remoteEnv": {
     "SSH_AUTH_SOCK": "/home/vscode/.ssh-agent-resolved.sock"
   },
-  "postCreateCommand": "bash /workspace/scripts/post-create.sh",
+  "postCreateCommand": "git config --global --add safe.directory /workspace && uv sync --extra dev && uv run prek install && uv run alembic upgrade head",
   "postStartCommand": "sh /workspace/.devcontainer/resolve-ssh-agent.sh",
   "customizations": {
     "vscode": {
